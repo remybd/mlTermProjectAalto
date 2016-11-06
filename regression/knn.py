@@ -1,5 +1,4 @@
 import numpy as np;
-from sklearn.model_selection import train_test_split;
 from sklearn.neighbors import KNeighborsRegressor;
 
 
@@ -8,7 +7,7 @@ iterations = 1000;
 
 
 # get training data from csv
-data = np.loadtxt("regression_dataset_training.csv",int,'#',',',);
+data = np.loadtxt("data/regression_dataset_training.csv",int,'#',',',);
 indexVote = len(data[0])-1;
 
 
@@ -27,9 +26,9 @@ print(mse);
 
 
 #Final result on test
-test = np.loadtxt("regression_dataset_testing.csv",int,'#',',',);
+test = np.loadtxt("data/regression_dataset_testing.csv",int,'#',',',);
 X_test = test[:,range(1,indexVote)];
-testSol = np.loadtxt("regression_dataset_testing_solution.csv",int,'#',',',);
+testSol = np.loadtxt("data/regression_dataset_testing_solution.csv",int,'#',',',);
 y_test = testSol[:,1];
 
 mse = np.mean((reg.predict(X_test) - y_test) ** 2);
