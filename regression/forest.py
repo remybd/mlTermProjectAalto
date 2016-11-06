@@ -1,6 +1,5 @@
 import numpy as np;
-from sklearn.model_selection import train_test_split;
-from sklearn import linear_model;
+from sklearn.ensemble import RandomForestRegressor;
 
 
 deg_max = 50;
@@ -10,32 +9,18 @@ iterations = 1000;
 # get training data from csv
 data = np.loadtxt("data/regression_dataset_training.csv",int,'#',',',);
 indexVote = len(data[0])-1;
-X_data = data[:,range(1,indexVote)];
-y_data = data[:,indexVote];
-
-
-
-#split training and validation data
-train, val = train_test_split(data, test_size=0.33);
-X_train = data[:,range(1,indexVote)];
-y_train = data[:,indexVote];
-
-X_val = val[:,range(1,indexVote)];
-y_val = val[:,indexVote];
-
-
-
 
 
 #WITH LIB
+X_data = data[:,range(1,indexVote)];
+y_data = data[:,indexVote];
+
 #get coeff with lib
-reg = linear_model.LinearRegression();
+reg = RandomForestRegressor();
 reg.fit(X_data, y_data);
-coeff = reg.coef_;
 
 #get mean square error
 mse = np.mean((reg.predict(X_data) - y_data) ** 2);
-#print(coeff);
 print(mse);
 
 
