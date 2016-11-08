@@ -4,22 +4,15 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import LinearSVC
 from sklearn.cross_validation import ShuffleSplit
+from classification.GaussianNaiveBayesClassifier import GaussianNaiveBayesClassifier
 import scipy as sp
 
-def logloss(act, pred):
-    epsilon = 0.9
-    pred = sp.maximum(epsilon, pred)
-    pred = sp.minimum(1-epsilon, pred)
-    ll = sum(act*sp.log(pred) + sp.subtract(1, act)*sp.log(sp.subtract(1, pred)))
-    ll = ll * -1.0/len(act)
-    return ll
 
-
-def report_performance(valid_error,valid_total, valid_incorrect, classifiers):
+def report_performance(valid_total, valid_incorrect, classifiers):
     for i in range(0, len(classifiers)):
         print(classifiers[i]['name'])
-        print("\tvalidation logloss=",valid_error[i])
-        print("\tvalidation accuracy= %d/%d incorrect = %f percent" % (valid_incorrect[i], valid_total[i], valid_incorrect[i]/valid_total[i]))
+        print("\tvalidation accuracy= %d/%d incorrect = %f percent" %
+              (valid_incorrect[i], valid_total[i], valid_incorrect[i]/valid_total[i]))
 
 
 def log_bernoulli_loss(y, y_pred, p=0.9):
@@ -38,61 +31,91 @@ def log_bernoulli_loss(y, y_pred, p=0.9):
 
 def accuracy_ratio(X, y, y_pred):
     total, correct = (X.shape[0], (y != y_pred).sum())
-    # print("Number of mislabeled points out of a total %d points : %d" % (total, correct))
     return total, correct
 
 
-def get_errors(classifier, X, y, X_test, y_test):
-    y_pred = classifier.fit(X, y).predict(X_test)
-    # print(classifier)
-    # Log-Bernoulli loss or prediction accurary
-    #
-    # log_bernoulli_loss(y,y_pred)
-    total, correct = accuracy_ratio(X_test, y_test, y_pred)
-    return logloss(y_test, y_pred), total, correct
+def classify(classifier, train_features, train_label, valid_features, valid_label):
+    label_pred = classifier.fit(train_features, train_label).predict(valid_features)
+    total, correct = accuracy_ratio(valid_features, valid_label, label_pred)
+    return total, correct
 
 
-def get_x_y(data, index_rating):
-    return data[:, range(1, index_rating)], data[:, index_rating]
-
-# Read data
-data = np.loadtxt("classification_dataset_training.csv", dtype=int, skiprows=1, delimiter=',',)
-indexRating = len(data[0])-1
-X_data = data[:, range(1, indexRating)]
-y_data = data[:, indexRating]
-
-# Setup Classifiers
-lr = {'classifier': LogisticRegression(), 'name': "LogisticRegression"}
-gnb = {'classifier': GaussianNB(), 'name': "GaussianNB"}
-svc = {'classifier': LinearSVC(C=1.0), 'name': "LinearSVC"}
-# mygnb = {'classifier': MyNaiveBayesClassifier(), 'name': "MyNaiveBayesClassifier"}
-rfc = {'classifier': RandomForestClassifier(n_estimators=100), 'name': "RandomForestClassifier"}
-classifiers = [gnb, svc, rfc, lr]
+def split_features_label(data):
+    width = len(data[0, :]) -1
+    return data[:, range(0, width)], data[:, width]
 
 
-nb_iter = 10
-valid_log_loss = [0] * len(classifiers)
-valid_incorrect = [0] * len(classifiers)
-valid_total = [0] * len(classifiers)
-# Random repartition for training & validation data in order to perform cross validation
-rs = ShuffleSplit(len(data[:, 0]), n_iter=nb_iter, test_size=0.25)
-for train_indexes, test_indexes in rs:
-    # Split in validation & training set
-    valid_data, train_data = data[test_indexes, :], data[train_indexes, :]
-    X_train_data, y_train_data = get_x_y(train_data, indexRating)
-    X_valid_data, y_valid_data = get_x_y(valid_data, indexRating)
-    # Compute log loss error for each classifier
+def classify_all(classifiers, train_data_features, train_data_label, valid_data_features, valid_data_label):
+    list_total = [0] * len(classifiers)
+    list_incorrect = [0] * len(classifiers)
+    # Compute accuracy error for each classifier
     for index, item in enumerate(classifiers):
+        total, incorrect = classify(classifiers[index]['classifier'],
+                                    train_data_features,
+                                    train_data_label,
+                                    valid_data_features,
+                                    valid_data_label)
+        list_total[index] += total
+        list_incorrect[index] += incorrect
+    return list_total, list_incorrect
 
-        log_loss, total, incorrect = get_errors(classifiers[index]['classifier'], X_train_data, y_train_data, X_valid_data, y_valid_data)
-        valid_log_loss[index] += log_loss
-        valid_incorrect[index] += incorrect
-        valid_total[index] += total
 
+def main():
+    # Read  data
+    training_data = np.loadtxt("classification_dataset_training.csv",
+                               dtype=int, skiprows=1, delimiter=',', usecols=range(1, 52),)
+    test_data_features = np.loadtxt("classification_dataset_testing.csv",
+                                    dtype=int, skiprows=1, delimiter=',', usecols=range(1, 51),)
+    test_data_label = np.loadtxt("classification_dataset_testing_solution.csv",
+                                 dtype=int, skiprows=1, delimiter=',', usecols=range(1, 2),)
 
-valid_log_loss = np.divide(valid_log_loss, nb_iter)
-report_performance(valid_log_loss, valid_total, valid_incorrect, classifiers)
+    # Setup Classifiers
+    lr = {'classifier': LogisticRegression(), 'name': "LogisticRegression"}
+    gnb = {'classifier': GaussianNB(), 'name': "GaussianNB"}
+    svc = {'classifier': LinearSVC(C=1.0), 'name': "LinearSVC"}
+    mygnb = {'classifier': GaussianNaiveBayesClassifier(), 'name': "GaussianNaiveBayesClassifier (from scratch)"}
+    rfc = {'classifier': RandomForestClassifier(n_estimators=100), 'name': "RandomForestClassifier"}
+    classifiers = [mygnb, gnb, svc, rfc, lr]
 
-'''
-# Perform best classifier on test data
-'''
+    nb_iter = 10
+
+    # Random repartition for training & validation training_data in order to perform cross validation
+    rs = ShuffleSplit(len(training_data[:, 0]), n_iter=nb_iter, test_size=0.20)
+    list_total = [0] * len(classifiers)
+    list_incorrect = [0] * len(classifiers)
+    for train_indexes, valid_indexes in rs:
+        # Split in validation & training set
+        valid_data, train_data = training_data[valid_indexes, :], training_data[train_indexes, :]
+
+        train_data_features, train_data_label = split_features_label(train_data)
+        valid_data_features, valid_data_label = split_features_label(valid_data)
+        # Classify for each randomly picked training and validation set
+        total, incorrect = classify_all(classifiers,
+                                        train_data_features, train_data_label,
+                                        valid_data_features, valid_data_label)
+
+        list_total = np.add(list_total, total)
+        list_incorrect = np.add(list_incorrect, incorrect)
+
+    print("Cross Validation result:")
+    report_performance(list_total, list_incorrect, classifiers)
+
+    '''
+    # Perform best classifier on test training_data
+    '''
+    accuracy_result = np.divide(list_incorrect, list_total)
+    index_best_classifier = accuracy_result.argmin()
+
+    print("Best classifier is ", classifiers[index_best_classifier]['name'])
+    print("\n\nActual performance on test set:")
+
+    train_data_features, train_data_label = split_features_label(training_data)
+
+    # Classify for each randomly picked training and validation set
+    total, incorrect = classify_all(classifiers,
+                                    train_data_features, train_data_label,
+                                    test_data_features, test_data_label)
+    report_performance(total, incorrect, classifiers)
+
+if __name__ == "__main__":
+    main()
