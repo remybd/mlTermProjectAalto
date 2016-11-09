@@ -11,8 +11,6 @@ from sklearn.feature_selection import chi2
 
 
 def report_performance(train_best_mse_by_reg,val_best_mse_by_reg,  regressors):
-    print(train_best_mse_by_reg)
-    print(val_best_mse_by_reg)
     for reg_index, item in enumerate(regressors):
         print(regressors[reg_index]['name'])
         print("\tmean mse for training =",train_best_mse_by_reg[reg_index][1])
