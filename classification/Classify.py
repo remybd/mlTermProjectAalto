@@ -15,7 +15,7 @@ def report_performance(valid_total, valid_incorrect, classifiers):
     for i in range(0, len(classifiers)):
         print(classifiers[i]['name'])
         print("\tvalidation accuracy= %d/%d incorrect = %f percent" %
-              (valid_incorrect[i], valid_total[i], valid_incorrect[i]/valid_total[i]))
+              (valid_incorrect[i], valid_total[i], valid_incorrect[i] / valid_total[i]))
 
 
 def accuracy_ratio(X, y, y_pred):
@@ -109,59 +109,66 @@ def plot_all(results, classifiers, title):
 def main():
     # Read  data
     training_features = np.loadtxt("classification_dataset_training.csv",
-                               dtype=int, skiprows=1, delimiter=',', usecols=range(1, 51),)
+                                   dtype=int, skiprows=1, delimiter=',', usecols=range(1, 51), )
     training_label = np.loadtxt("classification_dataset_training.csv",
-                                   dtype=int, skiprows=1, delimiter=',', usecols=range(51, 52), )
+                                dtype=int, skiprows=1, delimiter=',', usecols=range(51, 52), )
     test_features = np.loadtxt("classification_dataset_testing.csv",
-                                    dtype=int, skiprows=1, delimiter=',', usecols=range(1, 51),)
+                               dtype=int, skiprows=1, delimiter=',', usecols=range(1, 51), )
     test_label = np.loadtxt("classification_dataset_testing_solution.csv",
-                                 dtype=int, skiprows=1, delimiter=',', usecols=range(1, 2),)
+                            dtype=int, skiprows=1, delimiter=',', usecols=range(1, 2), )
     features_names = np.loadtxt("classification_dataset_training.csv",
-                                 dtype=UserString, delimiter=',', usecols=range(1, 51),)[0, :]
+                                dtype=UserString, delimiter=',', usecols=range(1, 51), )[0, :]
 
     # Setup Classifiers
     classifiers, classifiers_name = setup_classifiers()
 
     test_results = np.zeros((len(training_features[0, :]), len(classifiers)))
     valid_results = np.zeros((len(training_features[0, :]), len(classifiers)))
+    choosen_features = [[]] * len(training_features[0, :])
     # Perform cross validation for nb features with nb in [1, 50]
     for index, nb_features in enumerate(range(1, len(training_features[0, :]) + 1)):
+        print(nb_features   )
         # Feature extraction
         mask_array = feature_selection(training_features, training_label, nb_features)
 
         # Keep best features
         training_features_tmp = training_features[:, mask_array]
-        # choosen_features = features_names[mask_array]
         test_features_tmp = test_features[:, mask_array]
+        choosen_features[nb_features - 1] = features_names[mask_array]
 
         nb_iter = 10
 
         accuracy_result = perform_cross_validation(training_features_tmp, training_label, classifiers, nb_iter)
         valid_results[index] = accuracy_result
-        # print("Cross Validation result:")
-        '''
-        # report_performance(list_total, list_incorrect, classifiers)
-        # title = "Comparison between classifiers for validation accuracy error and %d features" % len(features_names)
-        # plot(classifiers_name, accuracy_result, title)
-        '''
-        # Perform best classifier on test training_data
-        '''
-        index_best_classifier = accuracy_result.argmin()
-        print("Best classifier is ", classifiers[index_best_classifier]['name'])
-        print("\n\nActual performance on test set:")
-        '''
+
         # Classify for each randomly picked training and validation set
         total, incorrect = classify_all(classifiers,
                                         training_features_tmp, training_label,
                                         test_features_tmp, test_label)
-        accuracy_result = np.divide(incorrect, total)
-        # report_performance(total, incorrect, classifiers)
-        # title = "Comparison between classifiers for test accuracy error and %d features" % len(features_names)
-        # plot(classifiers_name, accuracy_result, title)
-        test_results[index] = accuracy_result
+        test_results[index] = np.divide(incorrect, total)
 
     plot_all(results=valid_results, classifiers=classifiers, title="Accuracy error on cross validation")
     plot_all(results=test_results, classifiers=classifiers, title="Accuracy error on test set")
+    for i in range(0, 50):
+        print("For", i + 1, " features, best one are: ")
+        print(choosen_features[i])
+
 
 if __name__ == "__main__":
     main()
+
+# print("Cross Validation result:")
+'''
+# report_performance(list_total, list_incorrect, classifiers)
+# title = "Comparison between classifiers for validation accuracy error and %d features" % len(features_names)
+# plot(classifiers_name, accuracy_result, title)
+'''
+# Perform best classifier on test training_data
+'''
+index_best_classifier = accuracy_result.argmin()
+print("Best classifier is ", classifiers[index_best_classifier]['name'])
+print("\n\nActual performance on test set:")
+'''
+# report_performance(total, incorrect, classifiers)
+# title = "Comparison between classifiers for test accuracy error and %d features" % len(features_names)
+# plot(classifiers_name, accuracy_result, title)
