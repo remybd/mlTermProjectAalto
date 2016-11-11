@@ -3,14 +3,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.naive_bayes import GaussianNB
 from sklearn.linear_model import LogisticRegression
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.svm import LinearSVC
 from sklearn.cross_validation import ShuffleSplit
+from sklearn.neighbors import KNeighborsClassifier
 from classification.GaussianNaiveBayesClassifier import GaussianNaiveBayesClassifier
 from sklearn.feature_selection import RFE
-import scipy as sp
+from sklearn.naive_bayes import MultinomialNB
 
-
+cross_valid_cache = []
 def report_performance(valid_total, valid_incorrect, classifiers):
     for i in range(0, len(classifiers)):
         print(classifiers[i]['name'])
@@ -65,23 +64,31 @@ def plot(classifiers_name, accuracy_result, title):
 
 
 def setup_classifiers():
-    lr = {'classifier': LogisticRegression(), 'name': "LogisticRegression"}
+    lr = {'classifier': LogisticRegression(n_jobs=4), 'name': "LogisticRegression"}
     gnb = {'classifier': GaussianNB(), 'name': "GaussianNB"}
-    svc = {'classifier': LinearSVC(C=1.0), 'name': "LinearSVC"}
+    clf = {'classifier': MultinomialNB(), 'name': "MultinomialNB"}
     my_gnb = {'classifier': GaussianNaiveBayesClassifier(), 'name': "GaussianNaiveBayesClassifier"}
-    rfc = {'classifier': RandomForestClassifier(n_estimators=100), 'name': "RandomForestClassifier"}
-    classifiers = [gnb, svc, rfc]
+    knn200 = {'classifier': KNeighborsClassifier(n_neighbors=200, n_jobs=4), 'name': "200-NeighborsClassifier"}
+    knn50 = {'classifier': KNeighborsClassifier(n_neighbors=50, n_jobs=4), 'name': "50-NeighborsClassifier"}
+    knn1 = {'classifier': KNeighborsClassifier(n_neighbors=1, n_jobs=4), 'name': "1-NeighborsClassifier"}
+    knn5 = {'classifier': KNeighborsClassifier(n_neighbors=5, n_jobs=4), 'name': "5-NeighborsClassifier"}
+    knn10 = {'classifier': KNeighborsClassifier(n_neighbors=10, n_jobs=4), 'name': "10-NeighborsClassifier"}
+    knn100 = {'classifier': KNeighborsClassifier(n_neighbors=100, n_jobs=4), 'name': "100-NeighborsClassifier"}
+    # classifiers = [gnb, my_gnb, lr, knn50, knn20, clf]
+    classifiers = [knn1, knn5, knn10, knn50, knn200, knn100]
     classifiers_name = []
     for classifier in classifiers:
         classifiers_name.append(classifier["name"])
     return classifiers, classifiers_name
 
 
-def perform_cross_validation(training_features, training_label, classifiers, nb_iter):
+def perform_cross_validation(training_features, training_label, classifiers, nb_iter, cross_valid_cache ):
     list_total, list_incorrect = [0] * len(classifiers), [0] * len(classifiers)
+
     # Random repartition for training & validation training_data in order to perform cross validation
-    rs = ShuffleSplit(len(training_features[:, 0]), n_iter=nb_iter, test_size=0.20)
-    for train_indexes, valid_indexes in rs:
+    if len(cross_valid_cache) == 0:
+        cross_valid_cache = ShuffleSplit(len(training_features[:, 0]), n_iter=nb_iter, test_size=0.20)
+    for train_indexes, valid_indexes in cross_valid_cache:
         # Split in validation & training set
         valid_features, train_features = training_features[valid_indexes, :], training_features[train_indexes, :]
         valid_label, train_label = training_label[valid_indexes], training_label[train_indexes]
@@ -93,7 +100,7 @@ def perform_cross_validation(training_features, training_label, classifiers, nb_
 
         list_total = np.add(list_total, total)
         list_incorrect = np.add(list_incorrect, incorrect)
-    return np.divide(list_incorrect, list_total)
+    return np.divide(list_incorrect, list_total), cross_valid_cache
 
 
 def plot_all(results, classifiers, title):
@@ -125,9 +132,11 @@ def main():
     test_results = np.zeros((len(training_features[0, :]), len(classifiers)))
     valid_results = np.zeros((len(training_features[0, :]), len(classifiers)))
     choosen_features = [[]] * len(training_features[0, :])
+    cross_valid_cache = []
     # Perform cross validation for nb features with nb in [1, 50]
+
     for index, nb_features in enumerate(range(1, len(training_features[0, :]) + 1)):
-        print(nb_features   )
+        print(nb_features)
         # Feature extraction
         mask_array = feature_selection(training_features, training_label, nb_features)
 
@@ -136,9 +145,9 @@ def main():
         test_features_tmp = test_features[:, mask_array]
         choosen_features[nb_features - 1] = features_names[mask_array]
 
-        nb_iter = 10
+        nb_iter = 100
 
-        accuracy_result = perform_cross_validation(training_features_tmp, training_label, classifiers, nb_iter)
+        accuracy_result, cross_valid_cache = perform_cross_validation(training_features_tmp, training_label, classifiers, nb_iter, cross_valid_cache)
         valid_results[index] = accuracy_result
 
         # Classify for each randomly picked training and validation set
@@ -147,11 +156,23 @@ def main():
                                         test_features_tmp, test_label)
         test_results[index] = np.divide(incorrect, total)
 
-    plot_all(results=valid_results, classifiers=classifiers, title="Accuracy error on cross validation")
+    plot_all(results=valid_results, classifiers=classifiers, title="Average accuracy error on cross validation process")
     plot_all(results=test_results, classifiers=classifiers, title="Accuracy error on test set")
-    for i in range(0, 50):
-        print("For", i + 1, " features, best one are: ")
-        print(choosen_features[i])
+    '''
+    with open("features-latex.txt", "tw", encoding='utf-8') as text_file:
+        for i in range(0, 50):
+            #{print("For", i + 1, " features, best one are: ")
+            #print(choosen_features[i])
+            # Latex format !
+            j = i+1
+            text_file.write("%d & " % j)
+            for index, feature in enumerate(choosen_features[i]):
+                if index == len(choosen_features[i]) - 1:
+                    text_file.write("%s " % feature)
+                else:
+                    text_file.write("%s, " % feature)
+            print("\\\ \hline \n", file=text_file)
+    '''
 
 
 if __name__ == "__main__":

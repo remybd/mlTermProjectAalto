@@ -18,9 +18,9 @@ class GaussianNaiveBayesClassifier:
 
     def _actual_fit(self, features):
         # for each attribute we compute both the mean and the variance
-        summaries = [(np.mean(attribute), np.var(attribute)) for attribute in zip(*features)]
-        del summaries[-1]
-        return summaries
+        return  [(np.mean(attribute), np.var(attribute)) for attribute in zip(*features)]
+        #del summaries[-1]
+        #return summaries
 
     def fit(self, features, label):
         splitted = self._split_by_class(features, label)
